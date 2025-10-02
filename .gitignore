@@ -1,0 +1,21 @@
+﻿# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Data exports (don't commit large data files)
+exports/
+*.xlsx
+*.csv
+*.json
+
+# Logs
+*.log
+full_extraction*.log
+
+# Sync state
+.sync/
+
+# OS files
+.DS_Store
