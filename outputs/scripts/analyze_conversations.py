@@ -39,7 +39,7 @@ class ConversationAnalyzer:
             if not HAS_OPENAI:
                 raise Exception("OpenAI not installed. Run: pip install openai")
             self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-            self.model = "gpt-4o-mini"  # Fast and cost-effective
+            self.model = os.getenv('OPENAI_MODEL', 'gpt-4o')  # Use GPT-4o for best quality
     
     def load_conversations(self, messages_csv: str, people_csv: str) -> Dict[str, Any]:
         """Load and aggregate conversations by lead."""
@@ -164,15 +164,27 @@ Analyze this conversation and extract:
                 )
                 result = response.content[0].text
             else:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{
-                        "role": "user",
-                        "content": prompt
-                    }],
-                    temperature=0.3,
-                    response_format={"type": "json_object"}
-                )
+                # GPT-5 and reasoning models don't support temperature or response_format
+                is_reasoning_model = 'gpt-5' in self.model.lower() or self.model.startswith('o')
+                
+                if is_reasoning_model:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{
+                            "role": "user",
+                            "content": prompt
+                        }]
+                    )
+                else:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{
+                            "role": "user",
+                            "content": prompt
+                        }],
+                        temperature=0.3,
+                        response_format={"type": "json_object"}
+                    )
                 result = response.choices[0].message.content
             
             # Parse JSON response
@@ -276,8 +288,9 @@ Analyze this conversation and extract:
             else:
                 print(f"   ℹ️  No clear pain points extracted")
             
-            # Rate limiting
-            time.sleep(0.5)
+            # Rate limiting - wait longer to avoid hitting API limits
+            # GPT-5 has strict rate limits (~500/day), so we need to pace ourselves
+            time.sleep(2.0)  # 2 seconds between requests = 30 requests/minute, 1800/hour
         
         return pd.DataFrame(results)
     
